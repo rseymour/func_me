@@ -1,6 +1,6 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::{parse_macro_input, ItemFn};
 
 #[proc_macro_attribute]
@@ -29,6 +29,11 @@ pub fn print_signature(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let inputs = &input.sig.inputs;
     let output = &input.sig.output;
     let stmts = &input.block.stmts;
+    let json_call = format_ident!("json_call_{}", name);
 
-    quote! {fn #name(#inputs) #output { #(#stmts)* }}.into()
+    quote! {
+        fn #name(#inputs) #output { #(#stmts)* }
+        fn #json_call() -> () {println!("{}", #name);}
+    }
+    .into()
 }
