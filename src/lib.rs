@@ -121,6 +121,32 @@ fn extract_function_raw(func: &ItemFn) -> Vec<Argument> {
         .collect()
 }
 
+fn rust_type_to_json_schema(ty: &Type) -> String {
+    match ty {
+        Type::Path(type_path) => {
+            if let Some(segment) = type_path.path.segments.last() {
+                let ret = match segment.ident.to_string().as_str() {
+                    "String" => "string",
+                    "i32" | "i64" | "isize" => "integer",
+                    "f32" | "f64" => "number",
+                    "bool" => "boolean",
+                    // Add more type mappings as needed
+                    _ => "object", // Default to object for complex types
+                };
+                ret.to_string()
+            } else {
+                "object".to_string() // Default case
+            }
+        }
+        Type::Reference(type_ref) => {
+            // Handle references, possibly recursively
+            rust_type_to_json_schema(&type_ref.elem)
+        }
+        // Handle other Type variants as needed
+        _ => "object".to_string(), // Default case
+    }
+}
+
 fn extract_function_args(func: &ItemFn) -> Vec<(String, String)> {
     func.sig
         .inputs
@@ -154,13 +180,11 @@ pub fn json_signature(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut fields = Vec::new();
     for arg in args {
         let name = arg.name;
-        let arg_type = arg.arg_type;
+        let arg_type = rust_type_to_json_schema(&arg.arg_type);
         let desc = arg.description;
         let field = format!(
             "\"{}\": {{ \"type\": \"{}\", \"description\": \"{}\" }}",
-            name,
-            quote!(#arg_type).to_string(),
-            desc
+            name, arg_type, desc
         );
         fields.push(field);
     }
