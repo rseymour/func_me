@@ -178,6 +178,7 @@ pub fn json_signature(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let args = extract_function_raw(&input);
     let mut fields = Vec::new();
+    let mut required = Vec::new();
     for arg in args {
         let name = arg.name;
         let arg_type = rust_type_to_json_schema(&arg.arg_type);
@@ -187,6 +188,7 @@ pub fn json_signature(_attr: TokenStream, item: TokenStream) -> TokenStream {
             name, arg_type, desc
         );
         fields.push(field);
+        required.push(name.to_string());
     }
     quote! {
         fn #name(#inputs) #output { #(#stmts)* }
@@ -222,18 +224,8 @@ pub fn json_signature(_attr: TokenStream, item: TokenStream) -> TokenStream {
             println!("      }},");
             println!("      \"required\": [");
             #(
-                let arg = match #inputs {
-                    syn::FnArg::Typed(arg) => arg;
-                    _ => panic!("Only support named arguments"),
-                };
-                let arg_name = match arg.pat.as_ref() {
-                    syn::Pat::Ident(ident) => ident.ident.to_string(),
-                    _ => panic!("Only support named arguments"),
-                };
-                quote! {
-                    println!("        \"{}\",", arg_name);
-                }
-            )
+                    println!("        \"{}\"", stringify!(#required));
+            )*
             println!("      ]");
             println!("    }}");
             println!("  }}");
