@@ -1,7 +1,7 @@
 use derive_quote_to_tokens::ToTokens;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, FnArg, Ident, ItemFn, Pat, Type};
+use syn::{parse_macro_input, Attribute, FnArg, Ident, ItemFn, ItemMod, Pat, Type};
 
 #[derive(ToTokens)]
 
@@ -62,8 +62,9 @@ fn rust_type_to_json_schema(ty: &Type) -> String {
 }
 
 #[proc_macro_attribute]
-pub fn json_value(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn json_value(_attrs: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
+    let attrs = input.attrs.clone();
     let name = &input.sig.ident;
     let inputs = &input.sig.inputs;
     let output = &input.sig.output;
@@ -75,6 +76,7 @@ pub fn json_value(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let mut fields = Vec::new();
     let mut required = Vec::new();
+    //let mut docs = Vec::new();
     for arg in args {
         let name = arg.name.to_string();
         let arg_type = rust_type_to_json_schema(&arg.arg_type);
@@ -82,6 +84,30 @@ pub fn json_value(_attr: TokenStream, item: TokenStream) -> TokenStream {
         let field = quote! {  #name: {"type": #arg_type , "description": #desc} };
         fields.push(field);
         required.push(name);
+    }
+    for attr in attrs {
+        match &attr.meta {
+            syn::Meta::Path(_) => (),
+            syn::Meta::List(_) => (),
+            syn::Meta::NameValue(nv) => {
+                eprintln!("OPOOKOAKSDFOAKSDOFKOAK {:#?}", quote!(#nv))
+            }
+        }
+        /*
+        if let Ok(doc) = syn::parse::<ItemMod>(attr.into()) {
+            let doc = parse_enum_doc_comment(&doc.attrs);
+            if let Some(doc) = doc {
+                println!("doc: {}", doc);
+                docs.push(doc);
+            }
+        }
+         */
+        //if let syn::Meta::NameValue(meta) = meta {
+        //    //if let syn::Lit::Str(doc) = meta.lit {
+        //    use quote::ToTokens;
+        //    return Some(meta.value.into_token_stream().to_string());
+        //    //}
+        //}
     }
     quote! {
         fn #name(#inputs) #output { #(#stmts)* }
@@ -95,7 +121,8 @@ pub fn json_value(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         "parameters": {
                             "type": "object",
                             "required": [#(#required),*],
-                            "properties": {#(#fields),*}
+                            "properties": {#(#fields),*},
+     //                       "docs": [#(#docs),*]
                         }
                     }
                 }
@@ -103,4 +130,18 @@ pub fn json_value(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
     .into()
+}
+
+fn parse_enum_doc_comment(attrs: &[syn::Attribute]) -> Option<String> {
+    for attr in attrs {
+        let meta = attr.parse_args().unwrap();
+        if let syn::Meta::NameValue(meta) = meta {
+            //if let syn::Lit::Str(doc) = meta.lit {
+            use quote::ToTokens;
+            return Some(meta.value.into_token_stream().to_string());
+            //}
+        }
+    }
+
+    None
 }
