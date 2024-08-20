@@ -76,6 +76,7 @@ pub fn json_value(_attrs: TokenStream, item: TokenStream) -> TokenStream {
 
     let mut fields = Vec::new();
     let mut required = Vec::new();
+    let mut docs = Vec::new();
     //let mut docs = Vec::new();
     for arg in args {
         let name = arg.name.to_string();
@@ -90,7 +91,9 @@ pub fn json_value(_attrs: TokenStream, item: TokenStream) -> TokenStream {
             syn::Meta::Path(_) => (),
             syn::Meta::List(_) => (),
             syn::Meta::NameValue(nv) => {
-                eprintln!("OPOOKOAKSDFOAKSDOFKOAK {:#?}", quote!(#nv))
+                let v = nv.value.clone();
+                //eprintln!("OPOOKOAKSDFOAKSDOFKOAK {:#?}", quote!(#v));
+                docs.push(quote!(#v));
             }
         }
         /*
@@ -122,7 +125,7 @@ pub fn json_value(_attrs: TokenStream, item: TokenStream) -> TokenStream {
                             "type": "object",
                             "required": [#(#required),*],
                             "properties": {#(#fields),*},
-     //                       "docs": [#(#docs),*]
+                            "docs": [#(#docs),*]
                         }
                     }
                 }
