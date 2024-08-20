@@ -4,7 +4,7 @@ use derive_quote_to_tokens::ToTokens;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use regex::Regex;
-use syn::{parse_macro_input, Attribute, FnArg, Ident, ItemFn, ItemMod, Pat, Type};
+use syn::{parse_macro_input, FnArg, Ident, ItemFn, Pat, Type};
 
 #[derive(ToTokens)]
 
@@ -139,18 +139,4 @@ pub fn json_value(_attrs: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
     .into()
-}
-
-fn parse_enum_doc_comment(attrs: &[syn::Attribute]) -> Option<String> {
-    for attr in attrs {
-        let meta = attr.parse_args().unwrap();
-        if let syn::Meta::NameValue(meta) = meta {
-            //if let syn::Lit::Str(doc) = meta.lit {
-            use quote::ToTokens;
-            return Some(meta.value.into_token_stream().to_string());
-            //}
-        }
-    }
-
-    None
 }
