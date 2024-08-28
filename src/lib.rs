@@ -223,8 +223,6 @@ pub fn add_to_toolbox(
     let mut required = Vec::new();
     let mut arg_desc = HashMap::new();
     let re = Regex::new(r".*?`(?<arg_name>.*?)`\W+(?<arg_description>.*)$").unwrap();
-    //todo create capture groups and us the regex to get the name and description
-    // and push them into a map in raw docs which can be linked/lined up with fields
     for attr in attrs {
         match &attr.meta {
             syn::Meta::NameValue(nv) => {
@@ -250,7 +248,6 @@ pub fn add_to_toolbox(
     for arg in args {
         let name = arg.name.to_string();
         let arg_type = rust_type_to_json_schema(&arg.arg_type);
-        //let desc = arg.description;
         let desc = match arg_desc.get(name.as_str()) {
             Some(desc) => desc,
             None => "",
