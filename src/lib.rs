@@ -145,22 +145,6 @@ pub fn tool_json_for_fn(
     .into()
 }
 
-//#[proc_macro_derive(IntrospectImpl)]
-//pub fn introspect_impl_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-//    let input = parse_macro_input!(input as DeriveInput);
-//    let name = &input.ident;
-//
-//    let expanded = quote! {
-//        impl #name {
-//            pub fn get_impl_names() -> Vec<&'static str> {
-//                vec![]
-//            }
-//        }
-//    };
-//
-//    proc_macro::TokenStream::from(expanded)
-//}
-
 #[proc_macro_attribute]
 pub fn toolbox(
     _attr: proc_macro::TokenStream,
