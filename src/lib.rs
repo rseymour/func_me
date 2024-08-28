@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 
 use derive_quote_to_tokens::ToTokens;
-use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use regex::Regex;
-use syn::{parse_macro_input, DeriveInput, ItemImpl, LitStr};
+use syn::{parse_macro_input, ItemImpl, LitStr};
 use syn::{FnArg, Ident, ItemFn, Pat, Type};
 
 #[derive(ToTokens)]
@@ -166,6 +165,9 @@ pub fn toolbox(
         .collect();
 
     let impl_names_tokens = impl_names.iter().map(|name| quote! { #name });
+    let impl_values = impl_names
+        .iter()
+        .map(|name| format_ident!("json_value_{}", name));
 
     let expanded = quote! {
         #input
@@ -173,6 +175,14 @@ pub fn toolbox(
         impl #ty {
             pub fn get_impl_names() -> Vec<&'static str> {
                 vec![#(#impl_names_tokens),*]
+            }
+            pub fn get_impl_json() -> Value {
+                let impls = vec![#(#ty::#impl_values),*];
+                let mut impl_vals = Vec::new();
+                for impl_fn in impls.iter() {
+                    impl_vals.push(impl_fn());
+                }
+                serde_json::json!(impl_vals)
             }
         }
     };
@@ -188,7 +198,6 @@ pub fn add_to_toolbox(
     // TODO allow renaming function in the json using an attr?
     // for now just pull out the function description
     // TokenStream [Literal { kind: Str, symbol: "this is a secret third function", suffix: None, span: #0 bytes(881..914) }]
-    eprintln!("attrs: {:?}", attribute_args);
     let function_description = parse_macro_input!(attribute_args as LitStr);
     let input = parse_macro_input!(item as ItemFn);
     let attrs = input.attrs.clone();
@@ -242,7 +251,7 @@ pub fn add_to_toolbox(
     }
     quote! {
         fn #name(#inputs) #output { #(#stmts)* }
-        fn #json_value() -> Value {
+        pub fn #json_value() -> Value {
             json!(
                 {
                     "type": "function",
