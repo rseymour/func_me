@@ -1,6 +1,6 @@
+use auto_toolbox::tool_json_for_fn;
 use serde_json::json;
-use serde_json::Value;
-use stringy_fn_derive_macro::tool_json_for_fn; // Add this line to import the `Value` type
+use serde_json::Value; // Add this line to import the `Value` type
 
 /// `num_iterations` - The number of times to print the message
 /// `user_name` - The name to print
