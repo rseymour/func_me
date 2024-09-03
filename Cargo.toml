@@ -16,3 +16,4 @@ path = "src/main.rs"
 syn = { "version" = "*", "features" = ["full"] }
 quote = "*"
 proc-macro2 = "*"
+derive-quote-to-tokens = "0.1.1"

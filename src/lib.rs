@@ -1,7 +1,8 @@
 extern crate proc_macro;
+use derive_quote_to_tokens::ToTokens;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, ItemFn};
+use syn::{parse_macro_input, FnArg, Ident, ItemFn, Pat, Type};
 
 #[proc_macro_attribute]
 pub fn print_signature_bad(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -74,13 +75,74 @@ struct Parameters {
 
 struct Property {
     name: String,
-    type_: String,
+    type_: Type,
     description: String,
-    enum_: Option<Vec<String>>,
+    enum_: Option<Vec<TypeP>>,
+}
+
+enum TypeP {
+    String(String),
+    Integer(i32),
+    Boolean(bool),
+    Object,
+    Array,
+    Null,
+}
+
+#[derive(ToTokens)]
+
+struct Argument {
+    name: Ident,
+    arg_type: Box<syn::Type>,
+    description: String,
+}
+
+fn extract_function_raw(func: &ItemFn) -> Vec<Argument> {
+    func.sig
+        .inputs
+        .iter()
+        .filter_map(|arg| {
+            if let FnArg::Typed(pat_type) = arg {
+                if let Pat::Ident(pat_ident) = &*pat_type.pat {
+                    let arg_name = pat_ident.ident.clone();
+                    let arg_type = pat_type.ty.clone();
+                    Some(Argument {
+                        name: arg_name,
+                        arg_type,
+                        description: "".to_string(),
+                    })
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn extract_function_args(func: &ItemFn) -> Vec<(String, String)> {
+    func.sig
+        .inputs
+        .iter()
+        .filter_map(|arg| {
+            if let FnArg::Typed(pat_type) = arg {
+                if let Pat::Ident(pat_ident) = &*pat_type.pat {
+                    let arg_name = pat_ident.ident.to_string();
+                    let arg_type = quote!(#pat_type.ty).to_string();
+                    Some((arg_name, arg_type))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 #[proc_macro_attribute]
-fn json_signature(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn json_signature(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
     let name = &input.sig.ident;
     let inputs = &input.sig.inputs;
@@ -88,10 +150,24 @@ fn json_signature(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let stmts = &input.block.stmts;
     let json_call = format_ident!("json_call_{}", name);
 
+    let args = extract_function_raw(&input);
+    let mut fields = Vec::new();
+    for arg in args {
+        let name = arg.name;
+        let arg_type = arg.arg_type;
+        let desc = arg.description;
+        let field = format!(
+            "\"{}\": {{ \"type\": \"{}\", \"description\": \"{}\" }}",
+            name,
+            quote!(#arg_type).to_string(),
+            desc
+        );
+        fields.push(field);
+    }
     quote! {
         fn #name(#inputs) #output { #(#stmts)* }
         fn #json_call() -> () {
-            println!("{{");
+            println!("/*{{");
             println!("  \"type\": \"function\",");
             println!("  \"function\": {{");
             println!("    \"name\": \"{}\",", stringify!(#name));
@@ -100,22 +176,25 @@ fn json_signature(_attr: TokenStream, item: TokenStream) -> TokenStream {
             println!("      \"type\": \"object\",");
             println!("      \"properties\": {{");
             #(
-                let arg = match #inputs {
-                    syn::FnArg::Typed(arg) => arg;
-                    _ => panic!("Only support named arguments"),
-                };
-                let arg_name = match arg.pat.as_ref() {
-                    syn::Pat::Ident(ident) => ident.ident.to_string(),
-                    _ => panic!("Only support named arguments"),
-                };
-                let arg_type = &arg.ty;
-                quote! {
-                    println!("        \"{}\": {{", arg_name);
-                    println!("          \"type\": \"{}\",", stringify!(#arg_type));
-                    println!("          \"description\": \"Description of the {} argument\"", arg_name);
-                    println!("        }},");
-                }
-            )
+                println!("{}", #fields);
+                //match #args {
+                //    syn::FnArg::Typed(arg) => {
+                //        let arg_name = match arg.pat.as_ref() {
+                //            syn::Pat::Ident(ident) => ident.ident.to_string(),
+                //            _ => panic!("Only support named arguments"),
+                //        };
+                //        let arg_type = &arg.ty;
+                //        println!("\"{}\"", stringify!(arg_type));
+                //    }
+                //    _ => panic!("Only support named arguments"),
+                //};
+                //quote! {
+                //    println!("        \"{}\": {{", arg_name);
+                //    println!("          \"type\": \"{}\",", stringify!(#arg_type));
+                //    println!("          \"description\": \"Description of the {} argument\"", arg_name);
+                //    println!("        }},");
+                //}
+            )*
             println!("      }},");
             println!("      \"required\": [");
             #(
@@ -134,7 +213,7 @@ fn json_signature(_attr: TokenStream, item: TokenStream) -> TokenStream {
             println!("      ]");
             println!("    }}");
             println!("  }}");
-            println!("}}");
+            println!("}}*/");
         }
     }
     .into()
