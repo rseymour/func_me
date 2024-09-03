@@ -65,7 +65,7 @@ fn rust_type_to_json_schema(ty: &Type) -> String {
 }
 
 #[proc_macro_attribute]
-pub fn json_value(_attrs: TokenStream, item: TokenStream) -> TokenStream {
+pub fn tool_json_for_fn(_attrs: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
     let attrs = input.attrs.clone();
     let name = &input.sig.ident;
