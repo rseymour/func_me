@@ -2,6 +2,8 @@ extern crate proc_macro;
 use derive_quote_to_tokens::ToTokens;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
+use serde_json::json;
+use serde_json::Value;
 use syn::{parse_macro_input, FnArg, Ident, ItemFn, Pat, Type};
 
 #[proc_macro_attribute]
@@ -230,6 +232,59 @@ pub fn json_signature(_attr: TokenStream, item: TokenStream) -> TokenStream {
             println!("    }}");
             println!("  }}");
             println!("}}*/");
+        }
+    }
+    .into()
+}
+
+#[proc_macro_attribute]
+pub fn json_value(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as ItemFn);
+    let name = &input.sig.ident;
+    let inputs = &input.sig.inputs;
+    let output = &input.sig.output;
+    let stmts = &input.block.stmts;
+    let json_value = format_ident!("json_value_{}", name);
+
+    let args = extract_function_raw(&input);
+    let mut fields = serde_json::map::Map::new();
+    let mut required = Vec::new();
+    for arg in args {
+        let name = arg.name;
+        let arg_type = rust_type_to_json_schema(&arg.arg_type);
+        let desc = arg.description;
+        let field = format!(
+            "\"{}\": {{ \"type\"; \"{}\", \"description\": \"{}\" }}",
+            name, arg_type, desc
+        );
+        fields.insert(
+            name.to_string(),
+            json!({"type":arg_type, "description":desc}),
+        );
+        required.push(name.to_string());
+    }
+    let fields = Value::Object(fields);
+    let fields = serde_json::to_string(&fields).unwrap();
+    //let fields = serde_json::value::to_raw_value(&fields).unwrap();
+
+    // Convert Value to RawValue
+    quote! {
+        fn #name(#inputs) #output { #(#stmts)* }
+        fn #json_value() -> Value {
+            json!(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": stringify!(#name),
+                        "description": "Description of the function",
+                        "parameters": {
+                            "type": "object",
+                            "properties": #fields,
+                            "required": [#(#required),*]
+                        }
+                    }
+                }
+            )
         }
     }
     .into()
