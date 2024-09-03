@@ -1,0 +1,18 @@
+[package]
+name = "func_me"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "stringy_fn_derive_macro"
+proc-macro = true
+path = "src/lib.rs"
+
+[[bin]]
+name = "func_me"
+path = "src/main.rs"
+
+[dependencies]
+syn = { "version" = "*", "features" = ["full"] }
+quote = "*"
+proc-macro2 = "*"
