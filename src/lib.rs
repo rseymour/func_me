@@ -1,6 +1,9 @@
+use std::collections::HashMap;
+
 use derive_quote_to_tokens::ToTokens;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
+use regex::Regex;
 use syn::{parse_macro_input, FnArg, Ident, ItemFn, Pat, Type};
 
 #[derive(ToTokens)]
@@ -62,8 +65,9 @@ fn rust_type_to_json_schema(ty: &Type) -> String {
 }
 
 #[proc_macro_attribute]
-pub fn json_value(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn tool_json_for_fn(_attrs: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
+    let attrs = input.attrs.clone();
     let name = &input.sig.ident;
     let inputs = &input.sig.inputs;
     let output = &input.sig.output;
@@ -73,12 +77,44 @@ pub fn json_value(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let json_value = format_ident!("json_value_{}", name);
     let args = extract_function_raw(&input);
 
+    // these could/should be sets if iteration order is preserved
+    // we rely too much on iteration order
     let mut fields = Vec::new();
     let mut required = Vec::new();
+    let mut arg_desc = HashMap::new();
+    let re = Regex::new(r".*?`(?<arg_name>.*?)`\W+(?<arg_description>.*)$").unwrap();
+    //todo create capture groups and us the regex to get the name and description
+    // and push them into a map in raw docs which can be linked/lined up with fields
+    for attr in attrs {
+        match &attr.meta {
+            syn::Meta::NameValue(nv) => {
+                let v = nv.value.clone();
+                match v {
+                    syn::Expr::Lit(s) => match s.lit {
+                        syn::Lit::Str(me) => {
+                            let haystack = me.value();
+                            let arg_caps = re.captures(&haystack).expect("we have doc strings formatted like: /// `arg_name` - arg_description");
+                            arg_desc.insert(
+                                arg_caps["arg_name"].to_string(),
+                                arg_caps["arg_description"].to_string(),
+                            );
+                        }
+                        _ => eprintln!("error in doc string matching code"),
+                    },
+                    _ => (),
+                }
+            }
+            _ => (),
+        }
+    }
     for arg in args {
         let name = arg.name.to_string();
         let arg_type = rust_type_to_json_schema(&arg.arg_type);
-        let desc = arg.description;
+        //let desc = arg.description;
+        let desc = match arg_desc.get(name.as_str()) {
+            Some(desc) => desc,
+            None => "",
+        };
         let field = quote! {  #name: {"type": #arg_type , "description": #desc} };
         fields.push(field);
         required.push(name);
@@ -95,7 +131,7 @@ pub fn json_value(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         "parameters": {
                             "type": "object",
                             "required": [#(#required),*],
-                            "properties": {#(#fields),*}
+                            "properties": {#(#fields),*},
                         }
                     }
                 }
