@@ -1,96 +1,7 @@
-extern crate proc_macro;
 use derive_quote_to_tokens::ToTokens;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use serde_json::json;
-use serde_json::Value;
-use syn::parse_str;
 use syn::{parse_macro_input, FnArg, Ident, ItemFn, Pat, Type};
-
-#[proc_macro_attribute]
-pub fn print_signature_bad(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as ItemFn);
-    let name = &input.sig.ident;
-    let inputs = &input.sig.inputs;
-    let output = &input.sig.output;
-
-    let expanded = quote! {
-        fn #name(&self) -> #output {
-            println!("Function name: {}", stringify!(#name));
-            println!("Input: {:?}", stringify!(#inputs));
-            println!("Output: {:?}", stringify!(#output));
-            #input
-        }
-    };
-
-    TokenStream::from(expanded)
-}
-
-#[proc_macro_attribute]
-pub fn print_signature(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as ItemFn);
-    let name = &input.sig.ident;
-    let inputs = &input.sig.inputs;
-    let output = &input.sig.output;
-    let stmts = &input.block.stmts;
-    let json_call = format_ident!("json_call_{}", name);
-
-    quote! {
-        fn #name(#inputs) #output { #(#stmts)* }
-        fn #json_call() -> () {println!("{}", #name);}
-    }
-    .into()
-}
-
-// {
-//     "type": "function",
-//     "function": {
-//       "name": "annotated_function_name",
-//       "description": "Description of the function",
-//       "parameters": {
-//         "type": "object",
-//         "properties": {
-//           "first_argument_var_name": {
-//             "type": "first_arg_type_in_json_style",
-//             "description": "description of the first argument"
-//           },
-//           "second_argument_var_name": {
-//             "type": "first_arg_type_in_json_style",
-//             "description": "description of second argument",
-//             "enum": [1,2]
-//           }
-//         },
-//         "required": ["first_argument_var_name", "second_argument_var_name"]
-//       }
-//     }
-//   }
-// create a rust struct out of the above json
-struct Function {
-    name: String,
-    description: String,
-    parameters: Parameters,
-}
-
-struct Parameters {
-    properties: Vec<Property>,
-    required: Vec<String>,
-}
-
-struct Property {
-    name: String,
-    type_: Type,
-    description: String,
-    enum_: Option<Vec<TypeP>>,
-}
-
-enum TypeP {
-    String(String),
-    Integer(i32),
-    Boolean(bool),
-    Object,
-    Array,
-    Null,
-}
 
 #[derive(ToTokens)]
 
@@ -150,94 +61,6 @@ fn rust_type_to_json_schema(ty: &Type) -> String {
     }
 }
 
-fn extract_function_args(func: &ItemFn) -> Vec<(String, String)> {
-    func.sig
-        .inputs
-        .iter()
-        .filter_map(|arg| {
-            if let FnArg::Typed(pat_type) = arg {
-                if let Pat::Ident(pat_ident) = &*pat_type.pat {
-                    let arg_name = pat_ident.ident.to_string();
-                    let arg_type = quote!(#pat_type.ty).to_string();
-                    Some((arg_name, arg_type))
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        })
-        .collect()
-}
-
-#[proc_macro_attribute]
-pub fn json_signature(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as ItemFn);
-    let name = &input.sig.ident;
-    let inputs = &input.sig.inputs;
-    let output = &input.sig.output;
-    let stmts = &input.block.stmts;
-    let json_call = format_ident!("json_call_{}", name);
-
-    let args = extract_function_raw(&input);
-    let mut fields = Vec::new();
-    let mut required = Vec::new();
-    for arg in args {
-        let name = arg.name;
-        let arg_type = rust_type_to_json_schema(&arg.arg_type);
-        let desc = arg.description;
-        let field = format!(
-            "\"{}\": {{ \"type\": \"{}\", \"description\": \"{}\" }}",
-            name, arg_type, desc
-        );
-        fields.push(field);
-        required.push(name.to_string());
-    }
-    quote! {
-        fn #name(#inputs) #output { #(#stmts)* }
-        fn #json_call() -> () {
-            println!("/*{{");
-            println!("  \"type\": \"function\",");
-            println!("  \"function\": {{");
-            println!("    \"name\": \"{}\",", stringify!(#name));
-            println!("    \"description\": \"Description of the function\",");
-            println!("    \"parameters\": {{");
-            println!("      \"type\": \"object\",");
-            println!("      \"properties\": {{");
-            #(
-                println!("{}", #fields);
-                //match #args {
-                //    syn::FnArg::Typed(arg) => {
-                //        let arg_name = match arg.pat.as_ref() {
-                //            syn::Pat::Ident(ident) => ident.ident.to_string(),
-                //            _ => panic!("Only support named arguments"),
-                //        };
-                //        let arg_type = &arg.ty;
-                //        println!("\"{}\"", stringify!(arg_type));
-                //    }
-                //    _ => panic!("Only support named arguments"),
-                //};
-                //quote! {
-                //    println!("        \"{}\": {{", arg_name);
-                //    println!("          \"type\": \"{}\",", stringify!(#arg_type));
-                //    println!("          \"description\": \"Description of the {} argument\"", arg_name);
-                //    println!("        }},");
-                //}
-            )*
-            println!("      }},");
-            println!("      \"required\": [");
-            #(
-                    println!("        \"{}\"", stringify!(#required));
-            )*
-            println!("      ]");
-            println!("    }}");
-            println!("  }}");
-            println!("}}*/");
-        }
-    }
-    .into()
-}
-
 #[proc_macro_attribute]
 pub fn json_value(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
@@ -245,40 +68,21 @@ pub fn json_value(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let inputs = &input.sig.inputs;
     let output = &input.sig.output;
     let stmts = &input.block.stmts;
+    // this is the function that is inserted into the attributed code
+    // ideally we would add a trait and an impl
     let json_value = format_ident!("json_value_{}", name);
-
     let args = extract_function_raw(&input);
-    let mut fields = serde_json::map::Map::new();
+
+    let mut fields = Vec::new();
     let mut required = Vec::new();
     for arg in args {
-        let name = arg.name;
+        let name = arg.name.to_string();
         let arg_type = rust_type_to_json_schema(&arg.arg_type);
         let desc = arg.description;
-        let field = format!(
-            "\"{}\": {{ \"type\"; \"{}\", \"description\": \"{}\" }}",
-            name, arg_type, desc
-        );
-        fields.insert(
-            name.to_string(),
-            json!({"type":arg_type, "description":desc}),
-        );
-        required.push(name.to_string());
+        let field = quote! {  #name: {"type": #arg_type , "description": #desc} };
+        fields.push(field);
+        required.push(name);
     }
-    let fields = Value::Object(fields);
-    //let fields = serde_json::to_string(&fields).unwrap();
-    let fields = serde_json::value::to_raw_value(&fields).unwrap();
-    let fields = fields.get();
-
-    let apple = "apple";
-    let tree = "tree";
-    // Create a TokenStream from the JSON string
-    //let json_tokens = quote::quote!(#fields);
-    //dbg!(&json_tokens);
-    let json_tokens = fields;
-
-    let xcx = quote! { {#apple: {"ooople": #tree}}};
-    //let json_expr: syn::Expr = parse_str(&json_tokens.to_string()).unwrap();
-
     quote! {
         fn #name(#inputs) #output { #(#stmts)* }
         fn #json_value() -> Value {
@@ -290,8 +94,8 @@ pub fn json_value(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         "description": "Description of the function",
                         "parameters": {
                             "type": "object",
-                            "properties": #xcx,
-                            "required": [#(#required),*]
+                            "required": [#(#required),*],
+                            "properties": {#(#fields),*}
                         }
                     }
                 }
