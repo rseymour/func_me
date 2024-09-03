@@ -1,6 +1,9 @@
+use std::collections::HashMap;
+
 use derive_quote_to_tokens::ToTokens;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
+use regex::Regex;
 use syn::{parse_macro_input, Attribute, FnArg, Ident, ItemFn, ItemMod, Pat, Type};
 
 #[derive(ToTokens)]
@@ -74,43 +77,47 @@ pub fn json_value(_attrs: TokenStream, item: TokenStream) -> TokenStream {
     let json_value = format_ident!("json_value_{}", name);
     let args = extract_function_raw(&input);
 
+    // these could/should be sets if iteration order is preserved
+    // we rely too much on iteration order
     let mut fields = Vec::new();
     let mut required = Vec::new();
-    let mut docs = Vec::new();
-    //let mut docs = Vec::new();
+    let mut arg_desc = HashMap::new();
+    let re = Regex::new(r".*?`(?<arg_name>.*?)`\W+(?<arg_description>.*)$").unwrap();
+    //todo create capture groups and us the regex to get the name and description
+    // and push them into a map in raw docs which can be linked/lined up with fields
+    for attr in attrs {
+        match &attr.meta {
+            syn::Meta::NameValue(nv) => {
+                let v = nv.value.clone();
+                match v {
+                    syn::Expr::Lit(s) => match s.lit {
+                        syn::Lit::Str(me) => {
+                            let haystack = me.value();
+                            let arg_caps = re.captures(&haystack).expect("we have doc strings formatted like: /// `arg_name` - arg_description");
+                            arg_desc.insert(
+                                arg_caps["arg_name"].to_string(),
+                                arg_caps["arg_description"].to_string(),
+                            );
+                        }
+                        _ => eprintln!("error in doc string matching code"),
+                    },
+                    _ => (),
+                }
+            }
+            _ => (),
+        }
+    }
     for arg in args {
         let name = arg.name.to_string();
         let arg_type = rust_type_to_json_schema(&arg.arg_type);
-        let desc = arg.description;
+        //let desc = arg.description;
+        let desc = match arg_desc.get(name.as_str()) {
+            Some(desc) => desc,
+            None => "",
+        };
         let field = quote! {  #name: {"type": #arg_type , "description": #desc} };
         fields.push(field);
         required.push(name);
-    }
-    for attr in attrs {
-        match &attr.meta {
-            syn::Meta::Path(_) => (),
-            syn::Meta::List(_) => (),
-            syn::Meta::NameValue(nv) => {
-                let v = nv.value.clone();
-                //eprintln!("OPOOKOAKSDFOAKSDOFKOAK {:#?}", quote!(#v));
-                docs.push(quote!(#v));
-            }
-        }
-        /*
-        if let Ok(doc) = syn::parse::<ItemMod>(attr.into()) {
-            let doc = parse_enum_doc_comment(&doc.attrs);
-            if let Some(doc) = doc {
-                println!("doc: {}", doc);
-                docs.push(doc);
-            }
-        }
-         */
-        //if let syn::Meta::NameValue(meta) = meta {
-        //    //if let syn::Lit::Str(doc) = meta.lit {
-        //    use quote::ToTokens;
-        //    return Some(meta.value.into_token_stream().to_string());
-        //    //}
-        //}
     }
     quote! {
         fn #name(#inputs) #output { #(#stmts)* }
@@ -125,7 +132,6 @@ pub fn json_value(_attrs: TokenStream, item: TokenStream) -> TokenStream {
                             "type": "object",
                             "required": [#(#required),*],
                             "properties": {#(#fields),*},
-                            "docs": [#(#docs),*]
                         }
                     }
                 }
