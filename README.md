@@ -104,7 +104,7 @@ general:
 - [x] generate a toolbox of functions which can all be turned into json with one call
 - [x] generate a function at compile time which outputs a `serde_json::Value` of the "function" schema
 - [ ] *rustdoc for the macros*
-- [ ] write example of how to use this with function calling + ollama and/or other APIs
+- [x] write example of how to use this with function calling + ollama and/or other APIs
 - [ ] generate a trait (possibly first for [ollama-rs](https://github.com/pepperoni21/ollama-rs))
 - [ ] do anything turning function output to JSON or utilizing it (I think this may never happen)
 
