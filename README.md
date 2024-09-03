@@ -53,6 +53,7 @@ output, note it is a list since multiple tools can be added using the same patte
     "type": "function"
   }
 ]
+```
 
 
 ## Original PoC Mode
