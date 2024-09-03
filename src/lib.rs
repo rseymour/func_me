@@ -44,7 +44,7 @@ fn rust_type_to_json_schema(ty: &Type) -> String {
             if let Some(segment) = type_path.path.segments.last() {
                 let ret = match segment.ident.to_string().as_str() {
                     "String" => "string",
-                    "i32" | "i64" | "isize" => "integer",
+                    "i32" | "i64" | "isize" | "u8" | "u128" => "integer",
                     "f32" | "f64" => "number",
                     "bool" => "boolean",
                     // Add more type mappings as needed
