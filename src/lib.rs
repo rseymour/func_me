@@ -4,6 +4,7 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use serde_json::json;
 use serde_json::Value;
+use syn::parse_str;
 use syn::{parse_macro_input, FnArg, Ident, ItemFn, Pat, Type};
 
 #[proc_macro_attribute]
@@ -264,10 +265,20 @@ pub fn json_value(_attr: TokenStream, item: TokenStream) -> TokenStream {
         required.push(name.to_string());
     }
     let fields = Value::Object(fields);
-    let fields = serde_json::to_string(&fields).unwrap();
-    //let fields = serde_json::value::to_raw_value(&fields).unwrap();
+    //let fields = serde_json::to_string(&fields).unwrap();
+    let fields = serde_json::value::to_raw_value(&fields).unwrap();
+    let fields = fields.get();
 
-    // Convert Value to RawValue
+    let apple = "apple";
+    let tree = "tree";
+    // Create a TokenStream from the JSON string
+    //let json_tokens = quote::quote!(#fields);
+    //dbg!(&json_tokens);
+    let json_tokens = fields;
+
+    let xcx = quote! { {#apple: {"ooople": #tree}}};
+    //let json_expr: syn::Expr = parse_str(&json_tokens.to_string()).unwrap();
+
     quote! {
         fn #name(#inputs) #output { #(#stmts)* }
         fn #json_value() -> Value {
@@ -279,7 +290,7 @@ pub fn json_value(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         "description": "Description of the function",
                         "parameters": {
                             "type": "object",
-                            "properties": #fields,
+                            "properties": #xcx,
                             "required": [#(#required),*]
                         }
                     }
