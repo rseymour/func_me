@@ -11,4 +11,5 @@ fn example(a: i32, b: String) -> Result<(), std::io::Error> {
 
 fn main() {
     example(24, "Hello".to_string()).unwrap();
+    json_call_example();
 }
