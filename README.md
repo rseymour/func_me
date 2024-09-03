@@ -1,4 +1,5 @@
-# func\_me: Tool calling json from rust function attribute macros
+# func\_me
+## LLM tool calling json with one rust function attribute macro
 
 Tool calling is a fun new feature of open and closed LLM APIs. 
 The JSON format posted to each API is near-jsonschema, but most libraries require you to write that schema by hand.
