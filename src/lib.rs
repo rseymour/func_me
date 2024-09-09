@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::iter::zip;
 
 use derive_quote_to_tokens::ToTokens;
 use quote::{format_ident, quote};
@@ -165,9 +166,21 @@ pub fn toolbox(
         .collect();
 
     let impl_names_tokens = impl_names.iter().map(|name| quote! { #name });
+
+    // these are the names of the wrapped up functions that go from
+    // fn whatever(a: A, b: B) -> x: X to fn_json_whatever(Value) -> Value
+    let fn_json_tokens = impl_names
+        .iter()
+        .map(|name| format_ident!("fn_json_{}", name));
     let impl_values = impl_names
         .iter()
         .map(|name| format_ident!("json_value_{}", name));
+
+    let name_to_wrap_vec = zip(impl_names.iter(), fn_json_tokens)
+        .map(|(name, fn_json)| (quote!(#name), fn_json))
+        .collect::<Vec<_>>();
+
+    eprintln!("name_to_wrap_vec: {:?}", name_to_wrap_vec);
 
     let expanded = quote! {
         #input
