@@ -176,18 +176,29 @@ pub fn toolbox(
         .iter()
         .map(|name| format_ident!("json_value_{}", name));
 
-    let name_to_wrap_vec = zip(impl_names.iter(), fn_json_tokens)
-        .map(|(name, fn_json)| (quote!(#name), fn_json))
-        .collect::<Vec<_>>();
-
-    eprintln!("name_to_wrap_vec: {:?}", name_to_wrap_vec);
-
     let expanded = quote! {
         #input
 
         impl #ty {
             pub fn get_impl_names() -> Vec<&'static str> {
                 vec![#(#impl_names_tokens),*]
+            }
+            //// this is BS this needs to be generated per, or we make them closures?
+            pub fn fn_json_lid_tightener(input: Value) -> Value {
+                // this is a placeholder
+                Value::Null
+            }
+            // value_fn is a name for the function that takes a Value and returns a Value
+            // but is really just a wrapper around the original function
+            pub fn get_value_fn(name: &str) -> Option<fn(Value) -> Value> {
+                use std::collections::HashMap;
+                use std::iter::zip;
+                let name_to_wrap_vec = zip(vec![#(#impl_names),*], vec![#(#ty::#fn_json_tokens),*])
+                    .map(|(name, fn_json)| (name, fn_json))
+                    .collect::<Vec<_>>();
+                // weird to construct on fly but it works?
+                let fn_map = HashMap::from_iter( name_to_wrap_vec.into_iter());
+                fn_map.get(name).map(|fn_json| *fn_json)
             }
             pub fn get_impl_json() -> Value {
                 let impls = vec![#(#ty::#impl_values),*];

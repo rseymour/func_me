@@ -41,6 +41,7 @@ async fn main() -> Result<()> {
 
     let body = response.text().await?;
     println!("{}", body);
+    dbg!(MyToolBox::get_value_fn("lid_tightener"));
 
     Ok(())
 }
