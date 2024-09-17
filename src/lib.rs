@@ -79,7 +79,7 @@ pub fn tool_json_for_fn(
     // this is the function that is inserted into the attributed code
     // ideally we would add a trait and an impl
     let json_value = format_ident!("json_value_{}", name);
-    let args = extract_function_raw(&input);
+    let args: Vec<Argument> = extract_function_raw(&input);
 
     // these could/should be sets if iteration order is preserved
     // we rely too much on iteration order
@@ -169,9 +169,10 @@ pub fn toolbox(
 
     // these are the names of the wrapped up functions that go from
     // fn whatever(a: A, b: B) -> x: X to fn_json_whatever(Value) -> Value
+    // FIXME make prefixes configurable
     let fn_json_tokens = impl_names
         .iter()
-        .map(|name| format_ident!("fn_json_{}", name));
+        .map(|name| format_ident!("value_fn_{}", name));
     let impl_values = impl_names
         .iter()
         .map(|name| format_ident!("json_value_{}", name));
@@ -183,11 +184,6 @@ pub fn toolbox(
             pub fn get_impl_names() -> Vec<&'static str> {
                 vec![#(#impl_names_tokens),*]
             }
-            //// this is BS this needs to be generated per, or we make them closures?
-            pub fn fn_json_lid_tightener(input: Value) -> Value {
-                // this is a placeholder
-                Value::Null
-            }
             // value_fn is a name for the function that takes a Value and returns a Value
             // but is really just a wrapper around the original function
             pub fn get_value_fn(name: &str) -> Option<fn(Value) -> Value> {
@@ -198,7 +194,7 @@ pub fn toolbox(
                     .collect::<Vec<_>>();
                 // weird to construct on fly but it works?
                 let fn_map = HashMap::from_iter( name_to_wrap_vec.into_iter());
-                fn_map.get(name).map(|fn_json| *fn_json)
+                fn_map.get(name).map(|fn_json|  *fn_json)
             }
             pub fn get_impl_json() -> Value {
                 let impls = vec![#(#ty::#impl_values),*];
@@ -232,12 +228,14 @@ pub fn add_to_toolbox(
     // this is the function that is inserted into the attributed code
     // ideally we would add a trait and an impl
     let json_value = format_ident!("json_value_{}", name);
+    let value_fn_name = format_ident!("value_fn_{}", name);
     let args = extract_function_raw(&input);
 
     // these could/should be sets if iteration order is preserved
     // we rely too much on iteration order
     let mut fields = Vec::new();
     let mut required = Vec::new();
+    let mut value_fn_args = Vec::new();
     let mut arg_desc = HashMap::new();
     let re = Regex::new(r".*?`(?<arg_name>.*?)`\W+(?<arg_description>.*)$").unwrap();
     for attr in attrs {
@@ -269,12 +267,19 @@ pub fn add_to_toolbox(
             Some(desc) => desc,
             None => "",
         };
+        let vfa = quote! { input[#name] };
+        value_fn_args.push(vfa);
         let field = quote! {  #name: {"type": #arg_type , "description": #desc} };
         fields.push(field);
         required.push(name);
     }
     quote! {
-        fn #name(#inputs) #output { #(#stmts)* }
+        pub fn #name(#inputs) #output { #(#stmts)* }
+        //// this is BS this needs to be generated per, or we make them closures?
+        pub fn #value_fn_name(input: Value) -> Value {
+            #name(#(#value_fn_args),*);
+            json!("ok")
+        }
         pub fn #json_value() -> Value {
             json!(
                 {
