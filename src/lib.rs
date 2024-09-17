@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::iter::zip;
 
 use derive_quote_to_tokens::ToTokens;
 use quote::{format_ident, quote};
@@ -278,10 +277,13 @@ pub fn add_to_toolbox(
     }
     quote! {
         pub fn #name(#inputs) #output { #(#stmts)* }
-        //// this is BS this needs to be generated per, or we make them closures?
         pub fn #value_fn_name(input: Value) -> Value {
-            Self::#name(#( #value_fn_args),*);
-            json!("ok")
+            // FIXME right now the Value of the attributed function is forced to be
+            // a Result *and* json serializable this is probably not sustainable
+            match Self::#name(#( #value_fn_args),*) {
+                Ok(result) => json!(result),
+                Err(e) => json!(e.to_string())
+            }
         }
         pub fn #json_value() -> Value {
             json!(

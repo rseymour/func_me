@@ -36,8 +36,9 @@ impl StudleyToolChest {
     /// `rotations` - number of rotations
     /// `brand` - brand of new tool
     #[add_to_toolbox("this is a new tool")]
-    pub fn new_tool(rotations: u128, brand: String) -> () {
-        println!("rotations: {}, brand: {}", rotations, brand)
+    pub fn new_tool(rotations: u32, brand: String) -> Result<u32, std::io::Error> {
+        println!("rotations: {}, brand: {}", rotations, brand);
+        Ok(rotations)
     }
 }
 

@@ -43,9 +43,14 @@ async fn main() -> Result<()> {
         .send()
         .await?;
 
-    let body = response.text().await?;
-    println!("{}", body);
-    let _x = MyToolBox::call_value_fn("lid_tightener", json!({"rotations": 3.0}));
+    let body: Value = response.json().await?;
+    // FIXME This needs a lot of help (probably typing the return value of the API)
+    for tool_call in body["message"]["tool_calls"].as_array().unwrap() {
+        let tool_name = tool_call["function"]["name"].as_str().unwrap();
+        let tool_args = &tool_call["function"]["arguments"];
+        let tool_return = MyToolBox::call_value_fn(tool_name, tool_args.clone());
+        dbg!(tool_return);
+    }
 
     Ok(())
 }
