@@ -186,15 +186,16 @@ pub fn toolbox(
             }
             // value_fn is a name for the function that takes a Value and returns a Value
             // but is really just a wrapper around the original function
-            pub fn get_value_fn(name: &str) -> Option<fn(Value) -> Value> {
+            pub fn call_value_fn(name: &str, input: Value) -> Value {
                 use std::collections::HashMap;
                 use std::iter::zip;
-                let name_to_wrap_vec = zip(vec![#(#impl_names),*], vec![#(#ty::#fn_json_tokens),*])
-                    .map(|(name, fn_json)| (name, fn_json))
-                    .collect::<Vec<_>>();
+                let matched_func = zip(vec![#(#impl_names),*], vec![#(#ty::#fn_json_tokens),*])
+                    .find(|(my_name, fn_json)| my_name == &name );
                 // weird to construct on fly but it works?
-                let fn_map = HashMap::from_iter( name_to_wrap_vec.into_iter());
-                fn_map.get(name).map(|fn_json|  *fn_json)
+                match matched_func {
+                    Some((_, fn_json)) => fn_json(input),
+                    None => json!("function not found")
+                }
             }
             pub fn get_impl_json() -> Value {
                 let impls = vec![#(#ty::#impl_values),*];
@@ -268,6 +269,8 @@ pub fn add_to_toolbox(
             None => "",
         };
         let vfa = quote! { input[#name] };
+        let vf_type = &arg.arg_type;
+        let vfa = quote! { serde_json::from_value::<#vf_type>(#vfa.clone()).unwrap() };
         value_fn_args.push(vfa);
         let field = quote! {  #name: {"type": #arg_type , "description": #desc} };
         fields.push(field);
@@ -277,7 +280,7 @@ pub fn add_to_toolbox(
         pub fn #name(#inputs) #output { #(#stmts)* }
         //// this is BS this needs to be generated per, or we make them closures?
         pub fn #value_fn_name(input: Value) -> Value {
-            #name(#(#value_fn_args),*);
+            Self::#name(#( #value_fn_args),*);
             json!("ok")
         }
         pub fn #json_value() -> Value {
