@@ -1,11 +1,33 @@
-# func\_me (WIP)
+# func_me (WIP)
+
 ## LLM tool calling with rust attributes and minimal stringiness
 
-Tool calling is a fun new feature of open and closed LLM APIs. 
+Tool calling is a fun new feature of open and closed LLM APIs.
 The JSON format posted to each API is near-jsonschema, but most libraries require you to write that schema by hand.
-This is an attempt to write that json automatically. 
+This is an attempt to write that json automatically.
+
+## Toolbox mode with function calling
+
+This is the mode currently seen in `examples/ollama_fn.rs`.
+
+Can be run with `cargo run --example ollama_fn`
+
+What happens is that now in addition to generating the JSON to describe the
+tooling, this crate now generates a way to call the rust function. Any function with the `#[add_to_toolbox("xyz")]` attribute inside of your impl is now
+callable with
+
+```rust
+tool_return = MyToolBox::call_value_fn(tool_name, tool_args);
+```
+
+where `tool_name` is `.message.tool_calls[].function.name` and `tool_args` is a
+`serde_json::Value` of `.message.tool_calls[].function.arguments`
+
+In the example you can see how this allows hands-free (without ever typing the a _stringy_ value of a function name) calling of functions.
+Returning the result as JSON is a bit of a hack right now, but it can be done in the future.
 
 ## Toolbox mode
+
 This is the mode currently seen in `src/main.rs`.
 
 ```rust
@@ -31,6 +53,7 @@ fn main() {
 ```
 
 output, note it is a list since multiple tools can be added using the same pattern above, see main.rs:
+
 ```json
 [
   {
@@ -44,9 +67,7 @@ output, note it is a list since multiple tools can be added using the same patte
             "type": "string"
           }
         },
-        "required": [
-          "bolt_location"
-        ],
+        "required": ["bolt_location"],
         "type": "object"
       }
     },
@@ -55,8 +76,8 @@ output, note it is a list since multiple tools can be added using the same patte
 ]
 ```
 
-
 ## Original PoC Mode
+
 This mode works when you just need a `serde_json::Value` for your function and don't mind the namespace pollution
 Basic idea is to have a function attribute `#[tool_json_for_fn]` and some doc comments:
 
@@ -87,10 +108,7 @@ Automatically generate:
           "type": "string"
         }
       },
-      "required": [
-        "secret_key",
-        "query"
-      ],
+      "required": ["secret_key", "query"],
       "type": "object"
     }
   },
@@ -101,21 +119,26 @@ Automatically generate:
 NOTE: work in progress/work in public:
 
 general:
+
 - [x] generate a toolbox of functions which can all be turned into json with one call
 - [x] generate a function at compile time which outputs a `serde_json::Value` of the "function" schema
-- [ ] *rustdoc for the macros*
+- [ ] _rustdoc for the macros_
 - [x] write example of how to use this with function calling + ollama and/or other APIs
 - [ ] generate a trait (possibly first for [ollama-rs](https://github.com/pepperoni21/ollama-rs))
-- [ ] do anything turning function output to JSON or utilizing it (I think this may never happen)
+- [x] do anything turning function output to JSON or utilizing it (I think this may never happen)
+- [x] allow function calling from values in the messages JSON (ie the LLM API response JSON)
 
 must:
+
 - [ ] make the docstrings <-> args 1:1 (ie no undoc'd args and no docs for non-existant args
 - [x] make a function description syntax
 - [x] make an impl ~trait~
 
 soon:
+
 - [ ] examples w/ pyO3/maturin
 - [ ] examples that link to ollama-rs, etc
 
 maybe:
+
 - [ ] could try schemars to do the thing, but I think syn is needed so that hack is fine

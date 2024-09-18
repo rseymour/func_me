@@ -44,7 +44,8 @@ async fn main() -> Result<()> {
         .await?;
 
     let body: Value = response.json().await?;
-    // FIXME This needs a lot of help (probably typing the return value of the API)
+
+    // FIXME This loop needs some help (probably typing the return value of the API)
     for tool_call in body["message"]["tool_calls"].as_array().unwrap() {
         let tool_name = tool_call["function"]["name"].as_str().unwrap();
         let tool_args = &tool_call["function"]["arguments"];
