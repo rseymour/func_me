@@ -1,10 +1,14 @@
-# func_me (WIP)
+# func_me
 
 ## LLM tool calling with rust attributes and minimal stringiness
 
-Tool calling is a fun new feature of open and closed LLM APIs.
+Tool calling is a feature of open and closed LLM APIs.
 The JSON format posted to each API is near-jsonschema, but most libraries require you to write that schema by hand.
-This is an attempt to write that json automatically.
+The JSON format returned by each API is relatively simple but requires work to turn into a function call.
+`func_me` automates the creation of the json in the request and a wrapper run the returned tool call automatically.
+All of this with as much compile time type checking and instant editor feedback as possible.
+
+Give it a try!
 
 ## Toolbox mode with function calling
 
@@ -122,6 +126,7 @@ general:
 
 - [x] generate a toolbox of functions which can all be turned into json with one call
 - [x] generate a function at compile time which outputs a `serde_json::Value` of the "function" schema
+- [ ] add a toolbox function to hide all of the json parsing needed to call the `call_value_fn`
 - [ ] _rustdoc for the macros_
 - [x] write example of how to use this with function calling + ollama and/or other APIs
 - [ ] generate a trait (possibly first for [ollama-rs](https://github.com/pepperoni21/ollama-rs))
@@ -142,3 +147,21 @@ soon:
 maybe:
 
 - [ ] could try schemars to do the thing, but I think syn is needed so that hack is fine
+
+# Notes
+
+The only similar proc macros I've seen have been in web tools like poem, dropshot, etc.
+Dropshot is one I'm somewhat familiar with and it offers 2 types of attributes.
+One is function based and the other is trait based.
+
+`func_me` offers a function based attribute for _getting_ the json.
+
+But I _don't_ offer a trait based impl.
+Instead I chose 2 attribute style which requires a struct and then a 'plain' impl instead of a trait impl.
+Something about traits in this case rubs me as overkill, feeling like twice the work.
+With a plain impl, you don't have to define the function twice, and you get the 'namespacing' of the struct for the impl.
+
+I know dropshot had [reasons](https://docs.rs/dropshot/latest/dropshot/#choosing-between-functions-and-traits) for the trait style, but I like this middle ground.
+I'd love to hear other folks thoughts on what's wrong with it.
+
+I think there could be a case for traits because of multiple implementations with function calling, but I haven't run into one yet.

@@ -8,8 +8,8 @@ struct MyToolBox;
 
 #[toolbox]
 impl MyToolBox {
-    #[add_to_toolbox("tightens a lid")] // this adds the following function to the toolbox with the description "tightens a lid"
     /// `rotations` - number of rotations
+    #[add_to_toolbox("tightens a lid")] // this adds the following function to the toolbox with the description "tightens a lid"
     pub fn lid_tightener(rotations: f32) -> Result<String, std::io::Error> {
         println!(
             "running some cool rotation code with rotations: {}",
