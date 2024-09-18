@@ -11,6 +11,10 @@ impl MyToolBox {
     #[add_to_toolbox("tightens a lid")] // this adds the following function to the toolbox with the description "tightens a lid"
     /// `rotations` - number of rotations
     pub fn lid_tightener(rotations: f32) -> Result<String, std::io::Error> {
+        println!(
+            "running some cool rotation code with rotations: {}",
+            rotations
+        );
         Ok(format!("this many rotations: {}", rotations))
     }
 }
@@ -39,8 +43,15 @@ async fn main() -> Result<()> {
         .send()
         .await?;
 
-    let body = response.text().await?;
-    println!("{}", body);
+    let body: Value = response.json().await?;
+
+    // FIXME This loop needs some help (probably typing the return value of the API)
+    for tool_call in body["message"]["tool_calls"].as_array().unwrap() {
+        let tool_name = tool_call["function"]["name"].as_str().unwrap();
+        let tool_args = &tool_call["function"]["arguments"];
+        let tool_return = MyToolBox::call_value_fn(tool_name, tool_args.clone());
+        dbg!(tool_return);
+    }
 
     Ok(())
 }

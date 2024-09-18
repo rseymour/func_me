@@ -78,7 +78,7 @@ pub fn tool_json_for_fn(
     // this is the function that is inserted into the attributed code
     // ideally we would add a trait and an impl
     let json_value = format_ident!("json_value_{}", name);
-    let args = extract_function_raw(&input);
+    let args: Vec<Argument> = extract_function_raw(&input);
 
     // these could/should be sets if iteration order is preserved
     // we rely too much on iteration order
@@ -165,6 +165,13 @@ pub fn toolbox(
         .collect();
 
     let impl_names_tokens = impl_names.iter().map(|name| quote! { #name });
+
+    // these are the names of the wrapped up functions that go from
+    // fn whatever(a: A, b: B) -> x: X to fn_json_whatever(Value) -> Value
+    // FIXME make prefixes configurable
+    let fn_json_tokens = impl_names
+        .iter()
+        .map(|name| format_ident!("value_fn_{}", name));
     let impl_values = impl_names
         .iter()
         .map(|name| format_ident!("json_value_{}", name));
@@ -175,6 +182,19 @@ pub fn toolbox(
         impl #ty {
             pub fn get_impl_names() -> Vec<&'static str> {
                 vec![#(#impl_names_tokens),*]
+            }
+            // value_fn is a name for the function that takes a Value and returns a Value
+            // but is really just a wrapper around the original function
+            pub fn call_value_fn(name: &str, input: Value) -> Value {
+                use std::collections::HashMap;
+                use std::iter::zip;
+                let matched_func = zip(vec![#(#impl_names),*], vec![#(#ty::#fn_json_tokens),*])
+                    .find(|(my_name, fn_json)| my_name == &name );
+                // weird to construct on fly but it works?
+                match matched_func {
+                    Some((_, fn_json)) => fn_json(input),
+                    None => json!("function not found")
+                }
             }
             pub fn get_impl_json() -> Value {
                 let impls = vec![#(#ty::#impl_values),*];
@@ -208,12 +228,14 @@ pub fn add_to_toolbox(
     // this is the function that is inserted into the attributed code
     // ideally we would add a trait and an impl
     let json_value = format_ident!("json_value_{}", name);
+    let value_fn_name = format_ident!("value_fn_{}", name);
     let args = extract_function_raw(&input);
 
     // these could/should be sets if iteration order is preserved
     // we rely too much on iteration order
     let mut fields = Vec::new();
     let mut required = Vec::new();
+    let mut value_fn_args = Vec::new();
     let mut arg_desc = HashMap::new();
     let re = Regex::new(r".*?`(?<arg_name>.*?)`\W+(?<arg_description>.*)$").unwrap();
     for attr in attrs {
@@ -245,12 +267,24 @@ pub fn add_to_toolbox(
             Some(desc) => desc,
             None => "",
         };
+        let vfa = quote! { input[#name] };
+        let vf_type = &arg.arg_type;
+        let vfa = quote! { serde_json::from_value::<#vf_type>(#vfa.clone()).unwrap() };
+        value_fn_args.push(vfa);
         let field = quote! {  #name: {"type": #arg_type , "description": #desc} };
         fields.push(field);
         required.push(name);
     }
     quote! {
-        fn #name(#inputs) #output { #(#stmts)* }
+        pub fn #name(#inputs) #output { #(#stmts)* }
+        pub fn #value_fn_name(input: Value) -> Value {
+            // FIXME right now the Value of the attributed function is forced to be
+            // a Result *and* json serializable this is probably not sustainable
+            match Self::#name(#( #value_fn_args),*) {
+                Ok(result) => json!(result),
+                Err(e) => json!(e.to_string())
+            }
+        }
         pub fn #json_value() -> Value {
             json!(
                 {
