@@ -14,9 +14,9 @@ impl StudleyToolChest {
     pub fn totally_normal_function(normalcy: String) -> Result<String, std::io::Error> {
         Ok(format!("see this is normal right? {}", normalcy))
     }
-    #[add_to_toolbox("this is a secret third function")]
     /// * `secret_key` - The secret key used for things
     /// * `query` - The query you want to ask
+    #[add_to_toolbox("this is a secret third function")]
     pub fn some_secret_third_function(
         secret_key: String,
         query: String,
