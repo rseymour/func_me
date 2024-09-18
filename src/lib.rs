@@ -265,7 +265,7 @@ pub fn add_to_toolbox(
         let arg_type = rust_type_to_json_schema(&arg.arg_type);
         let desc = match arg_desc.get(name.as_str()) {
             Some(desc) => desc,
-            None => "",
+            None => panic!("no docstring argument description found for: {}", name),
         };
         let vfa = quote! { input[#name] };
         let vf_type = &arg.arg_type;
