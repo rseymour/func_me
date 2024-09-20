@@ -246,7 +246,10 @@ pub fn add_to_toolbox(
                     syn::Expr::Lit(s) => match s.lit {
                         syn::Lit::Str(me) => {
                             let haystack = me.value();
-                            let arg_caps = re.captures(&haystack).expect("we have doc strings formatted like: /// `arg_name` - arg_description");
+                            let arg_caps = match re.captures(&haystack) {
+                                Some(caps) => caps,
+                                None => continue,
+                            };
                             arg_desc.insert(
                                 arg_caps["arg_name"].to_string(),
                                 arg_caps["arg_description"].to_string(),
@@ -260,6 +263,11 @@ pub fn add_to_toolbox(
             _ => (),
         }
     }
+
+    if args.len() != arg_desc.len() {
+        panic!("number of arguments and descriptions do not match");
+    }
+
     for arg in args {
         let name = arg.name.to_string();
         let arg_type = rust_type_to_json_schema(&arg.arg_type);
